@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>고시엔의 꿈: 프로스피 감독 모드 V16 (로직 완제)</title>
+    <title>고시엔의 꿈: 프로스피 감독 모드 V17 (능력치 & 타격지시 완제)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -586,7 +586,7 @@
         }
 
         /* -------------------------------------------------------------
-           MATCH ENGINE (RE-BUILT RUNNER ADVANCEMENT & FREEZE-FREE LOOP)
+           MATCH ENGINE (STAT-DRIVEN SIMULATION & DIRECTIONAL BATTING)
         ------------------------------------------------------------- */
         let matchState = {
             isOfficial: false, inning: 1, isTop: true,
@@ -802,15 +802,60 @@
             pitchBallResult(Math.random());
         }
 
-        function pitchBallResult(rand, strikeBonus = 0, ballBonus = 0) {
-            const strikeProb = 0.38 + strikeBonus - ballBonus;
-            const ballProb = 0.28 - strikeBonus + ballBonus;
+        // STAT DRIVEN PITCH RESOLUTION
+        function pitchBallResult(rand, mode = 'NORMAL') {
+            const currentBatter = !matchState.isTop ? gameState.players[matchState.currentBatterIdx] : gameState.awayBatters[matchState.awayBatterIdx];
+            const currentPitcher = gameState.pitchers[0] || { s1: 50, s2: 50 }; // Default pitcher stats
+
+            const batterPower = currentBatter ? currentBatter.s1 : 50;
+            const batterContact = currentBatter ? currentBatter.s2 : 50;
+            const pitcherVelocity = currentPitcher.s1;
+            const pitcherControl = currentPitcher.s2;
+
+            // Mode 1: WAIT (볼 관망) - 100% No Swing!
+            if (mode === 'WAIT') {
+                const strikeChance = pitcherControl / 110; // Pitcher control determines strike rate
+                if (Math.random() < strikeChance) {
+                    matchState.strikes++;
+                    if (matchState.strikes >= 3) {
+                        matchState.outs++; matchState.strikes = 0; matchState.balls = 0;
+                        matchLog("🎯 [볼 관망] 3구 루킹 삼진 아웃!");
+                        checkOutsAndAdvance();
+                    } else {
+                        matchLog(`⚾ [볼 관망] 타자가 지켜봅니다. (루킹 스트라이크! ${matchState.balls}B ${matchState.strikes}S)`);
+                        runMatchLoop();
+                    }
+                } else {
+                    matchState.balls++;
+                    if (matchState.balls >= 4) {
+                        matchLog("⚾ [볼 관망] 뛰어난 선구안으로 4구 볼넷을 골라냅니다!");
+                        advanceRunnersDetailed(1, 'WALK');
+                        matchState.strikes = 0; matchState.balls = 0;
+                        nextBatter();
+                    } else {
+                        matchLog(`⚾ [볼 관망] 타자가 공을 골라냅니다. (볼! ${matchState.balls}B ${matchState.strikes}S)`);
+                    }
+                    runMatchLoop();
+                }
+                return;
+            }
+
+            // Normal Pitch Calculation using Batter/Pitcher Stats
+            let strikeProb = 0.38 + (pitcherControl - 50) * 0.002;
+            let ballProb = 0.28 - (pitcherControl - 50) * 0.002;
+            let hitProbBonus = (batterContact - pitcherControl) * 0.003;
+            let powerBonus = (batterPower - pitcherVelocity) * 0.003;
+
+            if (mode === 'PULL') { powerBonus += 0.08; hitProbBonus -= 0.03; } // 당겨치기
+            if (mode === 'PUSH') { hitProbBonus += 0.08; powerBonus -= 0.05; } // 밀어치기
+            if (mode === 'CONTACT') { hitProbBonus += 0.12; }
+            if (mode === 'POWER') { powerBonus += 0.12; strikeProb += 0.05; }
 
             if (rand < strikeProb) {
                 matchState.strikes++;
                 if (matchState.strikes >= 3) {
                     matchState.outs++; matchState.strikes = 0; matchState.balls = 0;
-                    matchLog("🎯 [3스트라이크] 삼진 아웃!");
+                    matchLog("🎯 [3스트라이크] 헛스윙 삼진 아웃!");
                     checkOutsAndAdvance();
                 } else {
                     matchLog(`⚡ 스트라이크! (${matchState.balls}B ${matchState.strikes}S)`);
@@ -827,24 +872,26 @@
                 }
             } else {
                 matchState.strikes = 0; matchState.balls = 0;
-                const hitTypeRand = Math.random();
+                const hitTypeRand = Math.random() + hitProbBonus;
 
-                if (hitTypeRand > 0.65) {
+                if (hitTypeRand > 0.62) {
                     if (!matchState.isTop) matchState.homeH++; else matchState.awayH++;
                     
-                    if (hitTypeRand > 0.95) advanceRunnersDetailed(4, 'HR');
-                    else if (hitTypeRand > 0.88) advanceRunnersDetailed(3, '3B');
-                    else if (hitTypeRand > 0.78) advanceRunnersDetailed(2, '2B');
-                    else advanceRunnersDetailed(1, '1B');
+                    const hitPowerRand = Math.random() + powerBonus;
+
+                    if (hitPowerRand > 0.92) advanceRunnersDetailed(4, 'HR');
+                    else if (hitPowerRand > 0.85) advanceRunnersDetailed(3, '3B');
+                    else if (hitPowerRand > 0.72) advanceRunnersDetailed(2, '2B');
+                    else advanceRunnersDetailed(1, '1B', mode);
                     nextBatter();
                 } else {
-                    if (matchState.runners[0] && matchState.outs < 2 && Math.random() < 0.25) {
+                    if (matchState.runners[0] && matchState.outs < 2 && Math.random() < 0.28) {
                         matchState.outs += 2;
                         matchState.runners[0] = false;
-                        matchLog("🚨 [병살타!] 6-4-3 더블 플레이 아웃!");
+                        matchLog("🚨 [병살타!] 야수 정면 땅볼! 더블 플레이 아웃!");
                     } else {
                         matchState.outs++;
-                        matchLog("땅볼/뜬공 범타 아웃.");
+                        matchLog("내야 땅볼/외야 뜬공 아웃.");
                     }
                     checkOutsAndAdvance();
                 }
@@ -853,8 +900,8 @@
             runMatchLoop();
         }
 
-        // PERFECTED RUNNER ADVANCEMENT LOGIC (2루타 -> 1루타 -> 1,3루 완벽 연동)
-        function advanceRunnersDetailed(hitBases, type) {
+        // ACCURATE SITUATIONAL LOGS & RUNNER ADVANCEMENT
+        function advanceRunnersDetailed(hitBases, type, mode = 'NORMAL') {
             const hasScoringRunner = matchState.runners[1] || matchState.runners[2];
             let runsScored = 0;
 
@@ -869,7 +916,7 @@
 
                 const dist = Math.floor(Math.random() * 25) + 115;
                 matchLog(`${hrText} 담장을 까마득히 넘깁니다! (비거리 ${dist}m) +${runsScored}점!`);
-            } else if (type === 'SAC') { // 희생번트 전용 정밀 진루
+            } else if (type === 'SAC') {
                 let nextRunners = [false, false, false];
                 for (let i = 2; i >= 0; i--) {
                     if (matchState.runners[i]) {
@@ -881,7 +928,6 @@
             } else {
                 let nextRunners = [false, false, false];
 
-                // 기존 주자 이동
                 for (let i = 2; i >= 0; i--) {
                     if (matchState.runners[i]) {
                         const targetBase = i + hitBases;
@@ -893,13 +939,13 @@
                     }
                 }
 
-                // 타자 입루
                 if (type === '1B') {
                     nextRunners[0] = true;
+                    let modeDesc = mode === 'PULL' ? '강하게 당겨쳐 ' : (mode === 'PUSH' ? '결대로 밀어쳐 ' : '');
                     if (hasScoringRunner && runsScored > 0) {
-                        matchLog(`💥 [적시타!] 깔끔한 안타로 주자를 홈으로 불러들입니다! (+${runsScored}점)`);
+                        matchLog(`💥 [적시타!] ${modeDesc}주자를 홈으로 불러들입니다! (+${runsScored}점)`);
                     } else {
-                        matchLog("⚾ [1루타] 안타를 치고 1루까지 나갑니다.");
+                        matchLog(`⚾ [1루타] ${modeDesc}안타를 치고 1루에 진루합니다.`);
                     }
                 } else if (type === '2B') {
                     nextRunners[1] = true;
@@ -910,7 +956,11 @@
                     }
                 } else if (type === '3B') {
                     nextRunners[2] = true;
-                    matchLog(`⚡ [3루타!] 펜스 맞고 튀는 3루타! 주자 일싹 청소! (+${runsScored}점)`);
+                    if (runsScored > 0) {
+                        matchLog(`⚡ [3루타!] 펜스를 맞고 튀는 대형 3루타! 주자 싹 청소! (+${runsScored}점)`);
+                    } else {
+                        matchLog(`⚡ [3루타!] 펜스를 직접 때리는 대형 3루타! 타자 주자 3루까지 쇄도합니다!`);
+                    }
                 } else if (type === 'WALK') {
                     nextRunners = [...matchState.runners];
                     if (nextRunners[0]) {
@@ -967,16 +1017,18 @@
             
             if (!matchState.isTop) {
                 headerEl.innerHTML = `
-                    <button onclick="switchCmdCategory('off_bat')" id="cmd-tab-off_bat" class="sub-tab-btn ${matchState.cmdCategory === 'off_bat' ? 'active' : ''} px-2.5 py-1 rounded text-[11px] font-bold border border-slate-700">⚾ 타격 지시</button>
+                    <button onclick="switchCmdCategory('off_bat')" id="cmd-tab-off_bat" class="sub-tab-btn ${matchState.cmdCategory === 'off_bat' ? 'active' : ''} px-2.5 py-1 rounded text-[11px] font-bold border border-slate-700">⚾ 타격 코치 지시</button>
                     <button onclick="switchCmdCategory('off_run')" id="cmd-tab-off_run" class="sub-tab-btn ${matchState.cmdCategory === 'off_run' ? 'active' : ''} px-2.5 py-1 rounded text-[11px] font-bold border border-slate-700">🏃 주루 & 번트 작전</button>
                 `;
 
                 if (matchState.cmdCategory === 'off_bat') {
                     btns.innerHTML = `
-                        <button onclick="executeCommand('POWER')" class="bg-red-600 hover:bg-red-500 text-xs text-white p-2 rounded-lg font-bold transition">강타 (풀스윙)</button>
-                        <button onclick="executeCommand('CONTACT')" class="bg-amber-600 hover:bg-amber-500 text-xs text-white p-2 rounded-lg font-bold transition">정밀 타격</button>
-                        <button onclick="executeCommand('WAIT')" class="bg-slate-700 hover:bg-slate-600 text-xs text-white p-2 rounded-lg font-bold transition">신중히 공 보기</button>
-                        <button onclick="executeCommand('SWING')" class="bg-rose-700 hover:bg-rose-600 text-xs text-white p-2 rounded-lg font-bold transition">적극 타격</button>
+                        <button onclick="executeCommand('POWER')" class="bg-red-600 hover:bg-red-500 text-[11px] text-white p-2 rounded-lg font-bold transition">강타 (풀스윙)</button>
+                        <button onclick="executeCommand('CONTACT')" class="bg-amber-600 hover:bg-amber-500 text-[11px] text-white p-2 rounded-lg font-bold transition">정밀 타격</button>
+                        <button onclick="executeCommand('PULL')" class="bg-rose-700 hover:bg-rose-600 text-[11px] text-white p-2 rounded-lg font-bold transition">당겨치기 (장타유도)</button>
+                        <button onclick="executeCommand('PUSH')" class="bg-indigo-600 hover:bg-indigo-500 text-[11px] text-white p-2 rounded-lg font-bold transition">밀어치기 (출루유도)</button>
+                        <button onclick="executeCommand('WAIT')" class="bg-slate-700 hover:bg-slate-600 text-[11px] text-white p-2 rounded-lg font-bold transition">볼 보기 (신중 관망)</button>
+                        <button onclick="executeCommand('SWING')" class="bg-emerald-600 hover:bg-emerald-500 text-[11px] text-white p-2 rounded-lg font-bold transition">적극 타격</button>
                     `;
                 } else {
                     btns.innerHTML = `
@@ -1010,7 +1062,7 @@
             }
         }
 
-        // PERFECTED COMMAND EXECUTION & LOOP UNFREEZE
+        // PERFECTED COMMAND EXECUTION WITH STAT & MODE INTEGRATION
         function executeCommand(cmd) {
             matchState.isIntervention = false;
             document.getElementById('console-status').textContent = "시뮬레이션 중";
@@ -1022,15 +1074,25 @@
 
             const rand = Math.random();
 
-            if (cmd === 'FASTBALL') {
-                pitchBallResult(rand, 0.25, 0);
+            if (cmd === 'WAIT') {
+                pitchBallResult(rand, 'WAIT');
+            } else if (cmd === 'PULL') {
+                pitchBallResult(rand, 'PULL');
+            } else if (cmd === 'PUSH') {
+                pitchBallResult(rand, 'PUSH');
+            } else if (cmd === 'CONTACT') {
+                pitchBallResult(rand, 'CONTACT');
+            } else if (cmd === 'POWER') {
+                pitchBallResult(rand, 'POWER');
+            } else if (cmd === 'FASTBALL') {
+                pitchBallResult(rand, 'NORMAL');
             } else if (cmd === 'SLIDER') {
-                pitchBallResult(rand, -0.1, 0.3);
+                pitchBallResult(rand, 'NORMAL');
             } else if (cmd === 'CHANGEUP') {
-                pitchBallResult(rand, 0.3, 0);
+                pitchBallResult(rand, 'NORMAL');
             } else if (cmd === 'INFIELD') {
                 matchLog("🛡️ [내야 전진 수비] 땅볼 시 홈 태그아웃 대비 시프트.");
-                pitchBallResult(rand);
+                pitchBallResult(rand, 'NORMAL');
             } else if (cmd === 'PITCHOUT') {
                 matchState.balls++;
                 matchLog("⚾ [피치 아웃] 도루 경계 포수 허공 투구.");
@@ -1058,7 +1120,7 @@
                 } else {
                     matchLog("⚠️ 도루할 주자가 없습니다.");
                 }
-                pitchBallResult(rand);
+                pitchBallResult(rand, 'NORMAL');
             } else if (cmd === 'SQUEEZE' || cmd === 'SAC_BUNT') {
                 advanceRunnersDetailed(1, 'SAC');
                 matchState.outs++;
@@ -1066,7 +1128,7 @@
                 checkOutsAndAdvance();
                 runMatchLoop();
             } else {
-                pitchBallResult(rand);
+                pitchBallResult(rand, 'NORMAL');
             }
         }
 

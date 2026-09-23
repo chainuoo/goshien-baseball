@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고시엔의 꿈: 프로스피 감독 모드 V16 (로직 완제)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
+        body { font-family: 'Pretendard', sans-serif; background-color: #030712; color: #f9fafb; user-select: none; }
+        .glass { background: rgba(17, 24, 39, 0.95); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .tab-btn.active { background-color: #4f46e5; color: #ffffff; border-color: #818cf8; box-shadow: 0 0 12px rgba(79, 70, 229, 0.4); }
+        .sub-tab-btn.active { background-color: #3730a3; color: #ffffff; border-color: #6366f1; }
+        .bso-dot { width: 12px; height: 12px; border-radius: 9999px; background-color: #374151; display: inline-block; }
+        .bso-b { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .bso-s { background-color: #eab308; box-shadow: 0 0 8px #eab308; }
+        .bso-o { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; }
+        .star-gold { color: #f59e0b; }
+        .star-gray { color: #4b5563; }
+        .cal-day { aspect-ratio: 1; border-radius: 10px; font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .cal-active { background-color: #3730a3; border: 2px solid #818cf8; font-weight: 900; }
+        .cal-match { background-color: #881337; border: 1.5px solid #f43f5e; color: #fecdd3; }
+        .at-bat-highlight { background-color: rgba(245, 158, 11, 0.25); border: 1.5px solid #f59e0b !important; color: #fbbf24; font-weight: 900; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between p-4 max-w-7xl mx-auto overflow-hidden">
+
+    <!-- Top Status Header -->
+    <header class="glass rounded-2xl p-4 mb-3 flex justify-between items-center shadow-2xl shrink-0 border border-slate-800">
+        <div class="flex items-center gap-4">
+            <div class="bg-indigo-600 p-3 rounded-2xl text-white shadow-lg shadow-indigo-600/30">
+                <i data-lucide="trophy" class="w-7 h-7"></i>
+            </div>
+            <div>
+                <h1 class="font-black text-2xl tracking-tight text-white flex items-center gap-3">
+                    명문 고등학교 야구부
+                </h1>
+                <p class="text-xs text-amber-400 font-extrabold mt-1" id="current-date-text">1년차 4월 (Day 1)</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 text-xs font-bold">
+            <div class="bg-slate-900/90 px-4 py-2.5 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                <i data-lucide="calendar" class="w-4 h-4 text-indigo-400"></i>
+                <span>다음 대회: <span id="dday-text" class="text-indigo-300 font-extrabold">7월 1일</span></span>
+            </div>
+            <div class="bg-slate-900/90 px-4 py-2.5 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                <i data-lucide="heart-pulse" class="w-4 h-4 text-emerald-400"></i>
+                <span>팀 피로도: <span id="team-fatigue" class="text-emerald-400 font-extrabold">0%</span></span>
+            </div>
+            <div class="bg-slate-900/90 px-4 py-2.5 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+                <span>팀 사기: <span id="team-morale" class="text-amber-400 font-extrabold">80%</span></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tab Menu -->
+    <nav class="flex gap-3 mb-3 shrink-0">
+        <button onclick="switchTab('train')" id="tab-btn-train" class="tab-btn active px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border border-slate-700 bg-slate-900 text-slate-300 transition">
+            <i data-lucide="calendar-days" class="w-4 h-4"></i> 1. 달력 스케줄 & 훈련
+        </button>
+        <button onclick="switchTab('roster')" id="tab-btn-roster" class="tab-btn px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border border-slate-700 bg-slate-900 text-slate-300 transition">
+            <i data-lucide="users" class="w-4 h-4"></i> 2. 부원 명단, 능력치 & 개인훈련 통합
+        </button>
+        <button onclick="switchTab('match')" id="tab-btn-match" class="tab-btn px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border border-slate-700 bg-slate-900 text-slate-300 transition">
+            <i data-lucide="swords" class="w-4 h-4"></i> 3. 대회 & 토너먼트 센터
+        </button>
+    </nav>
+
+    <!-- Main Dynamic Tab Content -->
+    <main class="flex-1 glass rounded-2xl p-4 flex flex-col justify-between overflow-hidden relative border border-slate-800">
+        
+        <!-- TAB 1: 캘린더 스케줄 -->
+        <div id="tab-content-train" class="tab-page grid grid-cols-12 gap-4 h-full">
+            <div class="col-span-5 bg-slate-900/90 p-4 rounded-xl border border-slate-800 flex flex-col justify-between h-full">
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-sm font-black text-indigo-400 flex items-center gap-2">
+                            <i data-lucide="calendar" class="w-4 h-4"></i> <span id="calendar-month-title">4월 스케줄 캘린더</span>
+                        </h3>
+                        <span class="text-xs text-slate-400">월간 28일</span>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1.5 text-center text-xs font-bold text-slate-400 mb-2">
+                        <div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div class="text-indigo-400">토</div><div class="text-rose-400">일</div>
+                    </div>
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-1.5"></div>
+                </div>
+
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1.5">
+                    <div class="flex items-center gap-2.5"><div class="w-3 h-3 rounded bg-indigo-600 border border-indigo-400"></div> <span>현재 위치 (말이 진행되는 칸)</span></div>
+                    <div class="flex items-center gap-2.5"><div class="w-3 h-3 rounded bg-rose-900 border border-rose-500"></div> <span>공식 대회 개막일</span></div>
+                </div>
+            </div>
+
+            <div class="col-span-7 flex flex-col justify-between h-full space-y-3 overflow-hidden">
+                <div class="bg-slate-950/90 rounded-xl p-4 border border-slate-800 flex-1 overflow-y-auto text-xs font-mono text-slate-300 space-y-1.5" id="log-box">
+                    <div class="text-indigo-400 font-bold">> 고교야구 감독 모드 실행. 카드를 누르면 적힌 일수만큼 캘린더 칸이 전진합니다.</div>
+                </div>
+
+                <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 shrink-0">
+                    <h3 class="text-xs font-bold text-slate-400 mb-2.5">🎴 훈련 진행 카드 (선택 시 캘린더 칸 이동)</h3>
+                    <div class="grid grid-cols-5 gap-2.5" id="card-deck"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: 통합 부원 명단 -->
+        <div id="tab-content-roster" class="tab-page hidden grid grid-cols-12 gap-4 h-full overflow-hidden">
+            <div class="col-span-4 bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex flex-col h-full overflow-hidden">
+                <h3 class="text-xs font-bold text-indigo-400 mb-2.5 shrink-0">부원 명단 (<span id="roster-count">18</span>명)</h3>
+                <div id="roster-list" class="space-y-1.5 overflow-y-auto pr-1 flex-1 text-xs"></div>
+            </div>
+            <div class="col-span-8 bg-slate-900/90 p-5 rounded-xl border border-slate-800 h-full overflow-y-auto" id="roster-detail"></div>
+        </div>
+
+        <!-- TAB 3: 대회 센터 -->
+        <div id="tab-content-match" class="tab-page hidden flex flex-col justify-between h-full space-y-4">
+            <div class="bg-slate-900/70 p-8 rounded-2xl border border-slate-800 text-center space-y-5 my-auto max-w-2xl mx-auto w-full">
+                <i data-lucide="trophy" class="w-20 h-20 text-amber-400 mx-auto animate-bounce"></i>
+                <h2 class="text-3xl font-black text-white" id="tournament-stage-title">대회 일정 대기 중</h2>
+                <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">7월(여름 예선), 10월(가을 대회), 3월(봄 고시엔) 캘린더 개막일에 공식 대회가 개최됩니다.</p>
+                
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs flex justify-around items-center">
+                    <div class="text-center">
+                        <div class="text-slate-500 font-bold mb-1">현재 라운드</div>
+                        <div class="text-amber-400 font-black text-base" id="tour-round-name">대회 준비중</div>
+                    </div>
+                    <div class="h-10 w-px bg-slate-800"></div>
+                    <div class="text-center">
+                        <div class="text-slate-500 font-bold mb-1">다음 상대</div>
+                        <div class="text-rose-400 font-black text-base" id="tour-opponent-name">미정</div>
+                    </div>
+                </div>
+
+                <div class="flex justify-center gap-4 pt-2">
+                    <button onclick="startPracticeMatch()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-6 py-3.5 rounded-xl transition shadow-lg shadow-amber-600/20">연습 경기 치르기</button>
+                    <button id="official-start-btn" onclick="startOfficialMatch()" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-6 py-3.5 rounded-xl transition opacity-50 cursor-not-allowed shadow-lg shadow-rose-600/20">공식 대회 경기 출전</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MATCH OVERLAY UI -->
+    <div id="match-modal" class="hidden fixed inset-0 bg-slate-950/98 z-50 p-4 flex flex-col max-w-7xl mx-auto my-auto h-[98vh] glass rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+        
+        <!-- Scoreboard Panel -->
+        <div class="bg-slate-900 border border-slate-700 rounded-xl p-3 mb-3 text-xs shrink-0 shadow-lg">
+            <div class="overflow-x-auto">
+                <table class="w-full text-center border-collapse">
+                    <thead>
+                        <tr class="text-[11px] text-slate-400 border-b border-slate-800">
+                            <th class="p-1.5 text-left w-32 font-bold">팀명</th>
+                            <th class="p-1.5">1</th><th class="p-1.5">2</th><th class="p-1.5">3</th><th class="p-1.5">4</th><th class="p-1.5">5</th>
+                            <th class="p-1.5">6</th><th class="p-1.5">7</th><th class="p-1.5">8</th><th class="p-1.5">9</th>
+                            <th class="p-1.5 text-amber-400 border-l border-slate-800 font-black">R</th>
+                            <th class="p-1.5 text-emerald-400 font-black">H</th>
+                            <th class="p-1.5 text-rose-400 font-black">E</th>
+                        </tr>
+                    </thead>
+                    <tbody class="font-mono font-bold text-slate-200">
+                        <tr id="score-row-away">
+                            <td class="p-1.5 text-left text-rose-400 font-sans text-xs" id="away-team-name">상대팀</td>
+                            <td id="away-i1"></td><td id="away-i2"></td><td id="away-i3"></td><td id="away-i4"></td><td id="away-i5"></td>
+                            <td id="away-i6"></td><td id="away-i7"></td><td id="away-i8"></td><td id="away-i9"></td>
+                            <td class="text-amber-400 border-l border-slate-800 text-sm" id="away-r">0</td>
+                            <td class="text-emerald-400" id="away-h">0</td>
+                            <td class="text-rose-400" id="away-e">0</td>
+                        </tr>
+                        <tr id="score-row-home">
+                            <td class="p-1.5 text-left text-indigo-400 font-sans text-xs">우리 고교</td>
+                            <td id="home-i1"></td><td id="home-i2"></td><td id="home-i3"></td><td id="home-i4"></td><td id="home-i5"></td>
+                            <td id="home-i6"></td><td id="home-i7"></td><td id="home-i8"></td><td id="home-i9"></td>
+                            <td class="text-amber-400 border-l border-slate-800 text-sm" id="home-r">0</td>
+                            <td class="text-emerald-400" id="home-h">0</td>
+                            <td class="text-rose-400" id="home-e">0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center mt-2 pt-2 border-t border-slate-800/80 px-3">
+                <div class="text-amber-400 font-black text-sm flex items-center gap-2" id="match-inning-title">
+                    <i data-lucide="activity" class="w-4 h-4"></i> 1회초 상대팀 공격
+                </div>
+                
+                <div class="flex items-center gap-5 font-mono text-xs">
+                    <div class="flex items-center gap-1.5"><span class="text-emerald-400 font-extrabold">B</span><span id="b-1" class="bso-dot"></span><span id="b-2" class="bso-dot"></span><span id="b-3" class="bso-dot"></span></div>
+                    <div class="flex items-center gap-1.5"><span class="text-yellow-400 font-extrabold">S</span><span id="s-1" class="bso-dot"></span><span id="s-2" class="bso-dot"></span></div>
+                    <div class="flex items-center gap-1.5"><span class="text-red-500 font-extrabold">O</span><span id="o-1" class="bso-dot"></span><span id="o-2" class="bso-dot"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Arena -->
+        <div class="grid grid-cols-12 gap-3 flex-1 mb-3 overflow-hidden">
+            <div class="col-span-3 bg-slate-900/90 rounded-xl border border-slate-800 p-3 flex flex-col text-xs overflow-hidden">
+                <div class="font-extrabold text-indigo-400 mb-2 border-b border-slate-800 pb-1.5 shrink-0">
+                    <span>⚾ 우리 고교 타순</span>
+                </div>
+                <div id="home-lineup-list" class="space-y-1.5 overflow-y-auto flex-1 text-xs"></div>
+            </div>
+
+            <div class="col-span-6 bg-slate-900 rounded-xl border border-slate-800 relative flex flex-col items-center justify-center overflow-hidden p-2">
+                <div class="absolute top-3 bg-slate-950/90 px-4 py-1.5 rounded-full border border-slate-800 text-xs font-bold text-amber-400 z-10 flex gap-4 shadow-xl">
+                    <span>1루: <span id="hud-base-1" class="text-slate-300">없음</span></span>
+                    <span>2루: <span id="hud-base-2" class="text-slate-300">없음</span></span>
+                    <span>3루: <span id="hud-base-3" class="text-slate-300">없음</span></span>
+                </div>
+
+                <canvas id="field-canvas" width="600" height="320"></canvas>
+            </div>
+
+            <div class="col-span-3 bg-slate-900/90 rounded-xl border border-slate-800 p-3 flex flex-col text-xs overflow-hidden">
+                <div class="font-extrabold text-rose-400 mb-2 border-b border-slate-800 pb-1.5 shrink-0">
+                    <span>🦁 상대팀 타순</span>
+                </div>
+                <div id="away-lineup-list" class="space-y-1.5 overflow-y-auto flex-1 text-xs"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Console -->
+        <div class="grid grid-cols-12 gap-3 h-40 shrink-0">
+            <div class="col-span-6 bg-slate-950 p-3 rounded-xl border border-slate-800 overflow-y-auto text-xs font-mono space-y-1 text-slate-300" id="match-log"></div>
+            
+            <div id="director-console" class="col-span-6 bg-slate-900 p-3 rounded-xl border border-slate-700 flex flex-col justify-between overflow-hidden">
+                <div class="flex justify-between items-center mb-1.5 shrink-0">
+                    <div class="flex gap-2" id="cmd-tab-header"></div>
+                    <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-bold" id="console-status">시뮬레이션 중</span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-1.5 flex-1 items-center" id="command-buttons">
+                    <div class="col-span-3 text-center text-xs text-slate-500 py-3">1.5배속 시뮬레이션 진행 중...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Smart Hover Stat Card -->
+    <div id="player-hover-card" class="hidden fixed z-50 bg-slate-900/95 border border-indigo-500/60 p-3 rounded-xl shadow-2xl backdrop-blur-md w-60 text-xs pointer-events-none transition-opacity duration-150">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-1.5 mb-2">
+            <div>
+                <span class="font-black text-amber-400 text-sm" id="hover-p-name">선수명</span>
+                <span class="text-[10px] text-slate-400 ml-1.5" id="hover-p-pos">포지션</span>
+            </div>
+            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded font-bold border border-indigo-500/30" id="hover-p-trait">특능</span>
+        </div>
+        <div id="hover-p-stats" class="grid grid-cols-2 gap-1.5 text-[11px]"></div>
+    </div>
+
+    <!-- Script Engine -->
+    <script>
+        const gameState = {
+            year: 1, month: 4, day: 1,
+            fatigue: 15, morale: 75,
+            selectedPlayerId: 1,
+            players: [], pitchers: [], awayBatters: [], awayPitchers: [],
+            handCards: [], currentTab: 'train',
+            tournament: { active: false, roundName: '대회 준비중', opponentName: '미정', roundIndex: 0 }
+        };
+
+        const batterPositions = ['포수', '1루수', '2루수', '3루수', '유격수', '좌익수', '중견수', '우익수', '지명타자'];
+        const pitcherPositions = ['선발투수', '중계투수', '마무리투수'];
+        
+        const cardTemplates = [
+            { name: '근력 단련', type: 'S1', days: 2, icon: 'dumbbell', color: 'border-red-500/50 bg-red-950/30' },
+            { name: '전술 훈련', type: 'S2', days: 3, icon: 'target', color: 'border-blue-500/50 bg-blue-950/30' },
+            { name: '주루/변화구', type: 'S3', days: 2, icon: 'zap', color: 'border-emerald-500/50 bg-emerald-950/30' },
+            { name: '수비/체력', type: 'S4', days: 4, icon: 'shield', color: 'border-amber-500/50 bg-amber-950/30' },
+            { name: '휴식 & 휴양', type: 'REST', days: 5, icon: 'coffee', color: 'border-teal-500/50 bg-teal-950/30' }
+        ];
+
+        const rivalTeams = ['명성고등학교', '강호고등학교', '제국고등학교', '고시엔상고', '도쿄제일고'];
+        const jpFirstNames = ['사토', '스즈키', '다나카', '고바야시', '나카무라', '야마모토', '이토', '사이토', '요시다', '야마다'];
+        const jpLastNames = ['렌', '하루토', '소타', '유토', '미나토', '아라타', '유마', '이나토', '히로토', '다이키'];
+
+        const batterTraits = ['괴력', '스프레이 히터', '번트 마스터', '찬스X'];
+        const pitcherTraits = ['위기관리', '닥터 K', '피홈런주의', '완급조절'];
+
+        function getRandomJpName() { return jpFirstNames[Math.floor(Math.random()*jpFirstNames.length)] + ' ' + jpLastNames[Math.floor(Math.random()*jpLastNames.length)]; }
+
+        function calcStars(stat) {
+            if (stat >= 80) return 5;
+            if (stat >= 65) return 4;
+            if (stat >= 50) return 3;
+            if (stat >= 35) return 2;
+            return 1;
+        }
+
+        function renderStars(count) {
+            let html = '';
+            for(let i=1; i<=5; i++) html += `<span class="${i <= count ? 'star-gold' : 'star-gray'}">★</span>`;
+            return html;
+        }
+
+        function initRoster() {
+            let idCounter = 1;
+            gameState.players = [];
+            gameState.pitchers = [];
+
+            const fieldPositions = ['포수', '1루수', '2루수', '3루수', '유격수', '좌익수', '중견수', '우익수', '지명타자', '후보내야', '후보내야', '후보외야', '후보외야', '후보포수', '후보타자'];
+            fieldPositions.forEach(pos => {
+                const s1 = Math.floor(Math.random() * 35) + 35;
+                const s2 = Math.floor(Math.random() * 35) + 35;
+                const s3 = Math.floor(Math.random() * 35) + 35;
+                const s4 = Math.floor(Math.random() * 35) + 35;
+                const overall = Math.floor((s1 + s2 + s3 + s4) / 4);
+
+                gameState.players.push({
+                    id: idCounter++,
+                    name: getRandomJpName(),
+                    position: pos,
+                    year: Math.floor(Math.random() * 3) + 1,
+                    trait: batterTraits[Math.floor(Math.random()*batterTraits.length)],
+                    s1, s2, s3, s4, overall,
+                    potStat: Math.min(99, overall + Math.floor(Math.random() * 25) + 10),
+                    curStar: calcStars(overall),
+                    potStar: calcStars(Math.min(99, overall + 20)),
+                    individualMenu: 'S1'
+                });
+            });
+
+            pitcherPositions.forEach(pos => {
+                const s1 = Math.floor(Math.random() * 35) + 35;
+                const s2 = Math.floor(Math.random() * 35) + 35;
+                const s3 = Math.floor(Math.random() * 35) + 35;
+                const s4 = Math.floor(Math.random() * 35) + 35;
+                const overall = Math.floor((s1 + s2 + s3 + s4) / 4);
+
+                gameState.pitchers.push({
+                    id: idCounter++,
+                    name: getRandomJpName(),
+                    position: pos,
+                    year: Math.floor(Math.random() * 3) + 1,
+                    trait: pitcherTraits[Math.floor(Math.random()*pitcherTraits.length)],
+                    s1, s2, s3, s4, overall,
+                    potStat: Math.min(99, overall + Math.floor(Math.random() * 25) + 10),
+                    curStar: calcStars(overall),
+                    potStar: calcStars(Math.min(99, overall + 20)),
+                    individualMenu: 'S1'
+                });
+            });
+
+            drawCards();
+            renderAll();
+        }
+
+        function generateAwayRoster() {
+            gameState.awayBatters = batterPositions.map((pos, idx) => {
+                const s1 = Math.floor(Math.random() * 30) + 40;
+                const s2 = Math.floor(Math.random() * 30) + 40;
+                const s3 = Math.floor(Math.random() * 30) + 40;
+                const s4 = Math.floor(Math.random() * 30) + 40;
+                return {
+                    id: idx + 100,
+                    name: getRandomJpName(),
+                    position: pos,
+                    s1, s2, s3, s4,
+                    trait: batterTraits[Math.floor(Math.random()*batterTraits.length)]
+                };
+            });
+        }
+
+        function drawCards() {
+            gameState.handCards = [];
+            for (let i = 0; i < 5; i++) {
+                const c = cardTemplates[Math.floor(Math.random() * cardTemplates.length)];
+                gameState.handCards.push({ ...c, id: Date.now() + i + Math.random() });
+            }
+        }
+
+        function switchTab(tabName) {
+            gameState.currentTab = tabName;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-page').forEach(p => p.classList.add('hidden'));
+
+            document.getElementById(`tab-btn-${tabName}`).classList.add('active');
+            document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
+            renderAll();
+        }
+
+        function playCard(cardIndex) {
+            const card = gameState.handCards[cardIndex];
+            if (!card) return;
+
+            advanceDays(card.days);
+
+            if (card.type === 'REST') {
+                gameState.fatigue = Math.max(0, gameState.fatigue - 35);
+                gameState.morale = Math.min(100, gameState.morale + 15);
+                writeLog(`☕ [휴식] 캘린더 ${card.days}칸 전진. (팀 피로도 회복)`);
+            } else {
+                const statKey = card.type.toLowerCase();
+                gameState.fatigue = Math.min(100, gameState.fatigue + (card.days * 4));
+                
+                [...gameState.players, ...gameState.pitchers].forEach(p => {
+                    const gain = Math.floor(Math.random() * 2) + 1;
+                    p[statKey] = Math.min(99, p[statKey] + gain);
+                    if (p.individualMenu === card.type) p[statKey] = Math.min(99, p[statKey] + 2);
+                    
+                    p.overall = Math.floor((p.s1 + p.s2 + p.s3 + p.s4) / 4);
+                    p.curStar = calcStars(p.overall);
+                });
+                writeLog(`🏋️ [${card.name}] 캘린더 ${card.days}칸 전진하며 훈련 진행!`);
+            }
+
+            gameState.handCards[cardIndex] = { ...cardTemplates[Math.floor(Math.random() * cardTemplates.length)], id: Date.now() + Math.random() };
+            renderAll();
+        }
+
+        function advanceDays(days) {
+            gameState.day += days;
+            if (gameState.day > 28) {
+                gameState.day -= 28;
+                gameState.month++;
+                if (gameState.month > 12) {
+                    gameState.month = 1;
+                    gameState.year++;
+                    writeLog(`🎉 ${gameState.year}년차 새 학기 시작!`);
+                }
+            }
+
+            if ((gameState.month === 7 || gameState.month === 10 || gameState.month === 3) && gameState.day >= 1 && !gameState.tournament.active) {
+                setupNewTournament();
+            }
+        }
+
+        function setupNewTournament() {
+            gameState.tournament = {
+                active: true,
+                roundName: '8강전',
+                opponentName: rivalTeams[Math.floor(Math.random() * rivalTeams.length)],
+                roundIndex: 0
+            };
+            alert(`🚨 [대회 개막] ${gameState.month}월 공식 대회가 시작되었습니다! (첫 경기: 8강전)`);
+            switchTab('match');
+        }
+
+        function writeLog(msg) {
+            const box = document.getElementById('log-box');
+            const d = document.createElement('div');
+            d.textContent = `> ${msg}`;
+            box.appendChild(d);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function changeIndivMenu(playerId, val) {
+            const p = [...gameState.players, ...gameState.pitchers].find(x => x.id === playerId);
+            if (p) {
+                p.individualMenu = val;
+                writeLog(`🎯 ${p.name} 선수의 맞춤 훈련 메뉴가 변경되었습니다.`);
+                renderAll();
+            }
+        }
+
+        function renderCalendar() {
+            document.getElementById('calendar-month-title').textContent = `${gameState.month}월 스케줄 캘린더`;
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const isMatchMonth = (gameState.month === 7 || gameState.month === 10 || gameState.month === 3);
+
+            for (let i = 1; i <= 28; i++) {
+                const dayDiv = document.createElement('div');
+                const isCurrent = i === gameState.day;
+                const isMatchDay = isMatchMonth && i === 1;
+
+                let classes = "cal-day border border-slate-800 bg-slate-950/60 text-slate-400";
+                if (isCurrent) classes += " cal-active text-white";
+                else if (isMatchDay) classes += " cal-match";
+
+                dayDiv.className = classes;
+                dayDiv.innerHTML = `<span>${i}</span><span class="text-[9px] opacity-80">${isCurrent ? '현재' : (isMatchDay ? '대회' : '')}</span>`;
+                grid.appendChild(dayDiv);
+            }
+        }
+
+        function renderAll() {
+            document.getElementById('current-date-text').textContent = `${gameState.year}년차 ${gameState.month}월 (Day ${gameState.day})`;
+            document.getElementById('team-fatigue').textContent = `${gameState.fatigue}%`;
+            document.getElementById('team-morale').textContent = `${gameState.morale}%`;
+
+            renderCalendar();
+
+            const officialBtn = document.getElementById('official-start-btn');
+            if (gameState.tournament.active) {
+                officialBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                document.getElementById('tournament-stage-title').textContent = `🏆 ${gameState.month}월 공식 대회 진행 중!`;
+                document.getElementById('tour-round-name').textContent = gameState.tournament.roundName;
+                document.getElementById('tour-opponent-name').textContent = gameState.tournament.opponentName;
+                document.getElementById('dday-text').textContent = "지금 출전 가능!";
+            } else {
+                officialBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                document.getElementById('tournament-stage-title').textContent = "대회 일정 대기 중";
+                document.getElementById('tour-round-name').textContent = "대회 준비중";
+                document.getElementById('tour-opponent-name').textContent = "미정";
+                const targetM = gameState.month < 7 ? 7 : (gameState.month < 10 ? 10 : 3);
+                document.getElementById('dday-text').textContent = `${targetM}월 1일`;
+            }
+
+            const deckEl = document.getElementById('card-deck');
+            deckEl.innerHTML = '';
+            gameState.handCards.forEach((c, idx) => {
+                const div = document.createElement('div');
+                div.className = `p-3 rounded-xl border ${c.color} flex flex-col justify-between items-center text-center cursor-pointer shadow-lg active:scale-95 transition`;
+                div.onclick = () => playCard(idx);
+                div.innerHTML = `
+                    <div class="text-[10px] font-black bg-slate-900/90 px-2 py-0.5 rounded text-indigo-300 mb-1">+${c.days}칸 이동</div>
+                    <i data-lucide="${c.icon}" class="w-6 h-6 my-1.5 text-white"></i>
+                    <div class="font-black text-xs text-white">${c.name}</div>
+                `;
+                deckEl.appendChild(div);
+            });
+
+            const rosterList = document.getElementById('roster-list');
+            rosterList.innerHTML = '';
+            const allRoster = [...gameState.players, ...gameState.pitchers];
+            
+            allRoster.forEach(p => {
+                const isSel = p.id === gameState.selectedPlayerId;
+                const div = document.createElement('div');
+                div.className = `p-2.5 rounded-xl border cursor-pointer flex justify-between items-center transition ${isSel ? 'bg-indigo-600/30 border-indigo-500 shadow-md' : 'bg-slate-800/40 border-slate-800 hover:bg-slate-800/80'}`;
+                div.onclick = () => { gameState.selectedPlayerId = p.id; renderAll(); };
+                div.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded ${p.position.includes('투수') ? 'bg-rose-900/80 text-rose-300' : 'bg-slate-700 text-slate-300'}">${p.position}</span>
+                        <span class="font-bold text-slate-200">${p.name}</span>
+                    </div>
+                    <div class="text-xs">${renderStars(p.curStar)}</div>
+                `;
+                rosterList.appendChild(div);
+            });
+
+            const selP = allRoster.find(p => p.id === gameState.selectedPlayerId);
+            if (selP) {
+                const isP = selP.position.includes('투수');
+                const labels = isP ? ['구속', '제구력', '변화구', '체력'] : ['파워', '컨택', '주루', '수비력'];
+                const stats = [selP.s1, selP.s2, selP.s3, selP.s4];
+                const opts = isP 
+                    ? [{id:'S1',n:'구속 집중'}, {id:'S2',n:'제구 다듬기'}, {id:'S3',n:'변화구 연마'}, {id:'S4',n:'체력 강화'}]
+                    : [{id:'S1',n:'파워 특훈'}, {id:'S2',n:'컨택 연마'}, {id:'S3',n:'주루 훈련'}, {id:'S4',n:'수비 펑고'}];
+
+                document.getElementById('roster-detail').innerHTML = `
+                    <div class="border-b border-slate-800 pb-4 mb-4 flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs px-2.5 py-0.5 rounded font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">${selP.position} (${selP.year}학년)</span>
+                                <span class="text-xs px-2.5 py-0.5 rounded font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30">특능: ${selP.trait}</span>
+                            </div>
+                            <h3 class="text-3xl font-black text-white mt-1">${selP.name}</h3>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-slate-400 font-semibold mb-1">종합 평가</div>
+                            <div class="text-base">${renderStars(selP.curStar)} <span class="text-amber-400 font-black text-2xl ml-1.5">${selP.overall}</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4 bg-slate-950 p-3 rounded-xl border border-indigo-500/40 flex justify-between items-center text-xs shadow-inner">
+                        <span class="text-indigo-300 font-bold flex items-center gap-2">
+                            <i data-lucide="target" class="w-4 h-4"></i> 이 선수의 맞춤 훈련 지정:
+                        </span>
+                        <select onchange="changeIndivMenu(${selP.id}, this.value)" class="bg-slate-800 border border-indigo-500/60 text-amber-300 font-black rounded-lg px-3 py-1.5 text-xs focus:outline-none cursor-pointer">
+                            ${opts.map(o => `<option value="${o.id}" ${selP.individualMenu === o.id ? 'selected' : ''}>${o.n}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="mb-5 bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                        <span class="text-slate-400 font-bold">성장 잠재력 평가 (FM 스카우트 방식)</span>
+                        <div class="flex items-center gap-1">${renderStars(selP.potStar)} <span class="text-slate-400 text-xs ml-2 font-mono">(최대 ${selP.potStat})</span></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-x-8 gap-y-4 text-xs">
+                        ${labels.map((l, i) => `
+                            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                                <div class="flex justify-between text-slate-400 mb-1.5 font-bold"><span>${l}</span><span class="font-black text-white text-sm">${isP && i===0 ? Math.floor(stats[i]*0.8+80)+' km/h' : stats[i]}</span></div>
+                                <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden"><div class="bg-indigo-500 h-2.5 rounded-full" style="width:${Math.min(100, stats[i])}%"></div></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            lucide.createIcons();
+        }
+
+        /* -------------------------------------------------------------
+           MATCH ENGINE (RE-BUILT RUNNER ADVANCEMENT & FREEZE-FREE LOOP)
+        ------------------------------------------------------------- */
+        let matchState = {
+            isOfficial: false, inning: 1, isTop: true,
+            homeR: 0, homeH: 0, homeE: 0, awayR: 0, awayH: 0, awayE: 0,
+            homeInnings: Array(9).fill(''), awayInnings: Array(9).fill(''),
+            balls: 0, strikes: 0, outs: 0, runners: [false, false, false],
+            currentBatterIdx: 0, awayBatterIdx: 0,
+            isIntervention: false,
+            cmdCategory: 'off_bat'
+        };
+
+        const canvas = document.getElementById('field-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function startPracticeMatch() { startMatchMode(false, "연습경기 라이온즈"); }
+        function startOfficialMatch() { if (gameState.tournament.active) startMatchMode(true, gameState.tournament.opponentName); }
+
+        function startMatchMode(isOfficial, oppName) {
+            document.getElementById('match-modal').classList.remove('hidden');
+            document.getElementById('away-team-name').textContent = oppName;
+
+            generateAwayRoster();
+
+            matchState = {
+                isOfficial, inning: 1, isTop: true,
+                homeR: 0, homeH: 0, homeE: 0, awayR: 0, awayH: 0, awayE: 0,
+                homeInnings: Array(9).fill(''), awayInnings: Array(9).fill(''),
+                balls: 0, strikes: 0, outs: 0, runners: [false, false, false],
+                currentBatterIdx: 0, awayBatterIdx: 0,
+                isIntervention: false,
+                cmdCategory: 'def_pitch'
+            };
+            document.getElementById('match-log').innerHTML = `<div>> [${isOfficial ? gameState.tournament.roundName : '연습경기'}] 경기가 시작되었습니다!</div>`;
+            renderLineups();
+            updateScoreboardUI();
+            runMatchLoop();
+        }
+
+        function switchCmdCategory(cat) {
+            matchState.cmdCategory = cat;
+            document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.getElementById(`cmd-tab-${cat}`);
+            if (activeBtn) activeBtn.classList.add('active');
+            if (matchState.isIntervention) triggerInterventionUI();
+        }
+
+        function renderLineups() {
+            const homeEl = document.getElementById('home-lineup-list');
+            const awayEl = document.getElementById('away-lineup-list');
+            homeEl.innerHTML = ''; awayEl.innerHTML = '';
+
+            gameState.players.slice(0, 9).forEach((p, i) => {
+                const isAtBat = !matchState.isTop && i === matchState.currentBatterIdx;
+                homeEl.innerHTML += `
+                    <div onmouseenter="showHoverCard(event, ${p.id}, false)" onmousemove="moveHoverCard(event)" onmouseleave="hideHoverCard()" class="p-1.5 rounded-lg bg-slate-950 border border-slate-800 flex justify-between items-center cursor-pointer hover:border-indigo-500/50 transition ${isAtBat ? 'at-bat-highlight shadow-lg' : ''}">
+                        <span class="font-bold">${i+1}. ${p.name} ${isAtBat ? '⚾' : ''}</span>
+                        <span class="text-[10px] text-slate-400 font-semibold">${p.position}</span>
+                    </div>`;
+            });
+
+            gameState.awayBatters.forEach((p, i) => {
+                const isAtBat = matchState.isTop && i === matchState.awayBatterIdx;
+                awayEl.innerHTML += `
+                    <div onmouseenter="showHoverCard(event, ${p.id}, true)" onmousemove="moveHoverCard(event)" onmouseleave="hideHoverCard()" class="p-1.5 rounded-lg bg-slate-950 border border-slate-800 flex justify-between items-center cursor-pointer hover:border-rose-500/50 transition ${isAtBat ? 'at-bat-highlight shadow-lg' : ''}">
+                        <span class="font-bold">${i+1}. ${p.name} ${isAtBat ? '⚾' : ''}</span>
+                        <span class="text-[10px] text-slate-400 font-semibold">${p.position}</span>
+                    </div>`;
+            });
+        }
+
+        function showHoverCard(e, playerId, isAway) {
+            const card = document.getElementById('player-hover-card');
+            let p = isAway 
+                ? gameState.awayBatters.find(x => x.id === playerId)
+                : [...gameState.players, ...gameState.pitchers].find(x => x.id === playerId);
+            
+            if (!p) return;
+
+            document.getElementById('hover-p-name').textContent = p.name;
+            document.getElementById('hover-p-pos').textContent = p.position;
+            document.getElementById('hover-p-trait').textContent = p.trait || '기본';
+
+            const isP = p.position.includes('투수');
+            const labels = isP ? ['구속', '제구력', '변화구', '체력'] : ['파워', '컨택', '주루', '수비력'];
+            const stats = [p.s1, p.s2, p.s3, p.s4];
+
+            document.getElementById('hover-p-stats').innerHTML = labels.map((l, i) => `
+                <div class="bg-slate-950 p-1.5 rounded border border-slate-800 flex justify-between">
+                    <span class="text-slate-400">${l}</span>
+                    <span class="font-bold text-amber-300">${isP && i===0 ? Math.floor(stats[i]*0.8+80)+'km/h' : stats[i]}</span>
+                </div>
+            `).join('');
+
+            card.classList.remove('hidden');
+            moveHoverCard(e);
+        }
+
+        function moveHoverCard(e) {
+            const card = document.getElementById('player-hover-card');
+            const offset = 15;
+            let left = e.clientX + offset;
+            let top = e.clientY + offset;
+
+            if (left + card.offsetWidth > window.innerWidth - 10) {
+                left = e.clientX - card.offsetWidth - offset;
+            }
+            if (top + card.offsetHeight > window.innerHeight - 10) {
+                top = e.clientY - card.offsetHeight - offset;
+            }
+
+            card.style.left = `${left}px`;
+            card.style.top = `${top}px`;
+        }
+
+        function hideHoverCard() {
+            document.getElementById('player-hover-card').classList.add('hidden');
+        }
+
+        function updateScoreboardUI() {
+            for(let i=1; i<=9; i++) {
+                document.getElementById(`away-i${i}`).textContent = matchState.awayInnings[i-1];
+                document.getElementById(`home-i${i}`).textContent = matchState.homeInnings[i-1];
+            }
+            document.getElementById('away-r').textContent = matchState.awayR;
+            document.getElementById('away-h').textContent = matchState.awayH;
+            document.getElementById('away-e').textContent = matchState.awayE;
+
+            document.getElementById('home-r').textContent = matchState.homeR;
+            document.getElementById('home-h').textContent = matchState.homeH;
+            document.getElementById('home-e').textContent = matchState.homeE;
+
+            for(let i=1; i<=3; i++) document.getElementById(`b-${i}`).className = `bso-dot ${i <= matchState.balls ? 'bso-b' : ''}`;
+            for(let i=1; i<=2; i++) document.getElementById(`s-${i}`).className = `bso-dot ${i <= matchState.strikes ? 'bso-s' : ''}`;
+            for(let i=1; i<=2; i++) document.getElementById(`o-${i}`).className = `bso-dot ${i <= matchState.outs ? 'bso-o' : ''}`;
+
+            document.getElementById('match-inning-title').innerHTML = `<i data-lucide="activity" class="w-4 h-4"></i> ${matchState.inning}회${matchState.isTop ? '초 (상대 공격)' : '말 (우리 공격)'}`;
+            
+            document.getElementById('hud-base-1').textContent = matchState.runners[0] ? '주자 있음' : '없음';
+            document.getElementById('hud-base-1').className = matchState.runners[0] ? 'text-amber-400 font-black' : 'text-slate-400';
+            
+            document.getElementById('hud-base-2').textContent = matchState.runners[1] ? '주자 있음' : '없음';
+            document.getElementById('hud-base-2').className = matchState.runners[1] ? 'text-amber-400 font-black' : 'text-slate-400';
+
+            document.getElementById('hud-base-3').textContent = matchState.runners[2] ? '주자 있음' : '없음';
+            document.getElementById('hud-base-3').className = matchState.runners[2] ? 'text-amber-400 font-black' : 'text-slate-400';
+
+            renderLineups();
+            drawField();
+        }
+
+        function drawField() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#1b3821'; ctx.beginPath(); ctx.arc(300, 290, 230, Math.PI * 1.25, Math.PI * 1.75); ctx.fill();
+            ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3; ctx.stroke();
+            
+            ctx.fillStyle = '#7c4a27'; ctx.beginPath(); ctx.moveTo(300, 270); ctx.lineTo(370, 200); ctx.lineTo(300, 130); ctx.lineTo(230, 200); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#1b3821'; ctx.beginPath(); ctx.moveTo(300, 258); ctx.lineTo(358, 200); ctx.lineTo(300, 142); ctx.lineTo(242, 200); ctx.closePath(); ctx.fill();
+
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(300, 270); ctx.lineTo(460, 110); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(300, 270); ctx.lineTo(140, 110); ctx.stroke();
+
+            ctx.fillStyle = '#7c4a27'; ctx.beginPath(); ctx.arc(300, 200, 14, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(296, 198, 8, 3);
+
+            const bases = [[365, 200], [300, 135], [235, 200]];
+            bases.forEach((pos, idx) => {
+                ctx.fillStyle = matchState.runners[idx] ? '#f59e0b' : '#ffffff';
+                ctx.shadowColor = matchState.runners[idx] ? '#f59e0b' : 'transparent';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(pos[0]-7, pos[1]-7, 14, 14);
+                ctx.shadowBlur = 0;
+            });
+
+            ctx.strokeStyle = matchState.isIntervention ? '#f59e0b' : 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(278, 215, 44, 40);
+        }
+
+        function matchLog(msg) {
+            const logEl = document.getElementById('match-log');
+            const div = document.createElement('div');
+            div.textContent = `> ${msg}`;
+            logEl.appendChild(div);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function runMatchLoop() {
+            const curIdx = matchState.inning - 1;
+            if (matchState.isTop && matchState.awayInnings[curIdx] === '') matchState.awayInnings[curIdx] = 0;
+            if (!matchState.isTop && matchState.homeInnings[curIdx] === '') matchState.homeInnings[curIdx] = 0;
+
+            updateScoreboardUI();
+
+            if (matchState.inning > 9) {
+                finishMatch();
+                return;
+            }
+
+            const isScoringPos = matchState.runners[1] || matchState.runners[2] || (matchState.inning >= 8 && Math.abs(matchState.homeR - matchState.awayR) <= 2);
+
+            if (isScoringPos && !matchState.isIntervention) {
+                matchState.isIntervention = true;
+                matchState.cmdCategory = !matchState.isTop ? 'off_bat' : 'def_pitch';
+                triggerInterventionUI();
+            } else {
+                setTimeout(autoSimStep, 450);
+            }
+        }
+
+        function autoSimStep() {
+            pitchBallResult(Math.random());
+        }
+
+        function pitchBallResult(rand, strikeBonus = 0, ballBonus = 0) {
+            const strikeProb = 0.38 + strikeBonus - ballBonus;
+            const ballProb = 0.28 - strikeBonus + ballBonus;
+
+            if (rand < strikeProb) {
+                matchState.strikes++;
+                if (matchState.strikes >= 3) {
+                    matchState.outs++; matchState.strikes = 0; matchState.balls = 0;
+                    matchLog("🎯 [3스트라이크] 삼진 아웃!");
+                    checkOutsAndAdvance();
+                } else {
+                    matchLog(`⚡ 스트라이크! (${matchState.balls}B ${matchState.strikes}S)`);
+                }
+            } else if (rand < strikeProb + ballProb) {
+                matchState.balls++;
+                if (matchState.balls >= 4) {
+                    matchLog("⚾ [4구 볼넷] 볼넷 출루!");
+                    advanceRunnersDetailed(1, 'WALK');
+                    matchState.strikes = 0; matchState.balls = 0;
+                    nextBatter();
+                } else {
+                    matchLog(`볼! (${matchState.balls}B ${matchState.strikes}S)`);
+                }
+            } else {
+                matchState.strikes = 0; matchState.balls = 0;
+                const hitTypeRand = Math.random();
+
+                if (hitTypeRand > 0.65) {
+                    if (!matchState.isTop) matchState.homeH++; else matchState.awayH++;
+                    
+                    if (hitTypeRand > 0.95) advanceRunnersDetailed(4, 'HR');
+                    else if (hitTypeRand > 0.88) advanceRunnersDetailed(3, '3B');
+                    else if (hitTypeRand > 0.78) advanceRunnersDetailed(2, '2B');
+                    else advanceRunnersDetailed(1, '1B');
+                    nextBatter();
+                } else {
+                    if (matchState.runners[0] && matchState.outs < 2 && Math.random() < 0.25) {
+                        matchState.outs += 2;
+                        matchState.runners[0] = false;
+                        matchLog("🚨 [병살타!] 6-4-3 더블 플레이 아웃!");
+                    } else {
+                        matchState.outs++;
+                        matchLog("땅볼/뜬공 범타 아웃.");
+                    }
+                    checkOutsAndAdvance();
+                }
+            }
+
+            runMatchLoop();
+        }
+
+        // PERFECTED RUNNER ADVANCEMENT LOGIC (2루타 -> 1루타 -> 1,3루 완벽 연동)
+        function advanceRunnersDetailed(hitBases, type) {
+            const hasScoringRunner = matchState.runners[1] || matchState.runners[2];
+            let runsScored = 0;
+
+            if (type === 'HR') {
+                runsScored = matchState.runners.filter(Boolean).length + 1;
+                matchState.runners = [false, false, false];
+                
+                let hrText = "🚀 [솔로 홈런!]";
+                if (runsScored === 2) hrText = "🚀 [2점 투런 홈런!]";
+                else if (runsScored === 3) hrText = "💥 [3점 스리런 홈런!]";
+                else if (runsScored === 4) hrText = "👑 [만루 홈런! GRAND SLAM!]";
+
+                const dist = Math.floor(Math.random() * 25) + 115;
+                matchLog(`${hrText} 담장을 까마득히 넘깁니다! (비거리 ${dist}m) +${runsScored}점!`);
+            } else if (type === 'SAC') { // 희생번트 전용 정밀 진루
+                let nextRunners = [false, false, false];
+                for (let i = 2; i >= 0; i--) {
+                    if (matchState.runners[i]) {
+                        if (i + 1 >= 3) runsScored++;
+                        else nextRunners[i + 1] = true;
+                    }
+                }
+                matchState.runners = nextRunners;
+            } else {
+                let nextRunners = [false, false, false];
+
+                // 기존 주자 이동
+                for (let i = 2; i >= 0; i--) {
+                    if (matchState.runners[i]) {
+                        const targetBase = i + hitBases;
+                        if (targetBase >= 3) {
+                            runsScored++;
+                        } else {
+                            nextRunners[targetBase] = true;
+                        }
+                    }
+                }
+
+                // 타자 입루
+                if (type === '1B') {
+                    nextRunners[0] = true;
+                    if (hasScoringRunner && runsScored > 0) {
+                        matchLog(`💥 [적시타!] 깔끔한 안타로 주자를 홈으로 불러들입니다! (+${runsScored}점)`);
+                    } else {
+                        matchLog("⚾ [1루타] 안타를 치고 1루까지 나갑니다.");
+                    }
+                } else if (type === '2B') {
+                    nextRunners[1] = true;
+                    if (hasScoringRunner && runsScored > 0) {
+                        matchLog(`💥 [적시 2루타!] 외야 빈공간을 가르는 2루타! (+${runsScored}점)`);
+                    } else {
+                        matchLog("🚀 [2루타] 좌우중간을 가르는 장타로 2루에 도달합니다!");
+                    }
+                } else if (type === '3B') {
+                    nextRunners[2] = true;
+                    matchLog(`⚡ [3루타!] 펜스 맞고 튀는 3루타! 주자 일싹 청소! (+${runsScored}점)`);
+                } else if (type === 'WALK') {
+                    nextRunners = [...matchState.runners];
+                    if (nextRunners[0]) {
+                        if (nextRunners[1]) {
+                            if (nextRunners[2]) runsScored++;
+                            nextRunners[2] = true;
+                        }
+                        nextRunners[1] = true;
+                    }
+                    nextRunners[0] = true;
+                }
+
+                matchState.runners = nextRunners;
+            }
+
+            if (runsScored > 0) {
+                const idx = matchState.inning - 1;
+                if (matchState.isTop) {
+                    matchState.awayR += runsScored;
+                    matchState.awayInnings[idx] = (matchState.awayInnings[idx] === '' ? 0 : matchState.awayInnings[idx]) + runsScored;
+                } else {
+                    matchState.homeR += runsScored;
+                    matchState.homeInnings[idx] = (matchState.homeInnings[idx] === '' ? 0 : matchState.homeInnings[idx]) + runsScored;
+                }
+            }
+        }
+
+        function checkOutsAndAdvance() {
+            if (matchState.outs >= 3) {
+                matchState.outs = 0; matchState.balls = 0; matchState.strikes = 0;
+                matchState.runners = [false, false, false];
+                if (!matchState.isTop) matchState.inning++;
+                matchState.isTop = !matchState.isTop;
+                matchLog(`🔄 공수 교대 (${matchState.inning}회)`);
+            } else {
+                nextBatter();
+            }
+        }
+
+        function nextBatter() {
+            if (matchState.isTop) {
+                matchState.awayBatterIdx = (matchState.awayBatterIdx + 1) % 9;
+            } else {
+                matchState.currentBatterIdx = (matchState.currentBatterIdx + 1) % 9;
+            }
+        }
+
+        function triggerInterventionUI() {
+            document.getElementById('console-status').textContent = "⚡ 감독 개입 중";
+            document.getElementById('console-status').className = "text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded font-bold animate-pulse";
+            
+            const headerEl = document.getElementById('cmd-tab-header');
+            const btns = document.getElementById('command-buttons');
+            
+            if (!matchState.isTop) {
+                headerEl.innerHTML = `
+                    <button onclick="switchCmdCategory('off_bat')" id="cmd-tab-off_bat" class="sub-tab-btn ${matchState.cmdCategory === 'off_bat' ? 'active' : ''} px-2.5 py-1 rounded text-[11px] font-bold border border-slate-700">⚾ 타격 지시</button>
+                    <button onclick="switchCmdCategory('off_run')" id="cmd-tab-off_run" class="sub-tab-btn ${matchState.cmdCategory === 'off_run' ? 'active' : ''} px-2.5 py-1 rounded text-[11px] font-bold border border-slate-700">🏃 주루 & 번트 작전</button>
+                `;
+
+                if (matchState.cmdCategory === 'off_bat') {
+                    btns.innerHTML = `
+                        <button onclick="executeCommand('POWER')" class="bg-red-600 hover:bg-red-500 text-xs text-white p-2 rounded-lg font-bold transition">강타 (풀스윙)</button>
+                        <button onclick="executeCommand('CONTACT')" class="bg-amber-600 hover:bg-amber-500 text-xs text-white p-2 rounded-lg font-bold transition">정밀 타격</button>
+                        <button onclick="executeCommand('WAIT')" class="bg-slate-700 hover:bg-slate-600 text-xs text-white p-2 rounded-lg font-bold transition">신중히 공 보기</button>
+                        <button onclick="executeCommand('SWING')" class="bg-rose-700 hover:bg-rose-600 text-xs text-white p-2 rounded-lg font-bold transition">적극 타격</button>
+                    `;
+                } else {
+                    btns.innerHTML = `
+                        <button onclick="executeCommand('STEAL')" class="bg-emerald-600 hover:bg-emerald-500 text-xs text-white p-2 rounded-lg font-bold transition">단독 도루 지시</button>
+                        <button onclick="executeCommand('HITRUN')" class="bg-indigo-600 hover:bg-indigo-500 text-xs text-white p-2 rounded-lg font-bold transition">히트 앤 런</button>
+                        <button onclick="executeCommand('SQUEEZE')" class="bg-teal-600 hover:bg-teal-500 text-xs text-white p-2 rounded-lg font-bold transition">스퀴즈 번트</button>
+                        <button onclick="executeCommand('SAC_BUNT')" class="bg-amber-700 hover:bg-amber-600 text-xs text-white p-2 rounded-lg font-bold transition">희생 번트</button>
+                    `;
+                }
+            } else {
+                headerEl.innerHTML = `
+                    <button onclick="switchCmdCategory('def_pitch')" id="cmd-tab-def_pitch" class="sub-tab-btn ${matchState.cmdCategory === 'def_pitch' ? 'active' : ''} px-2.5 py-1 rounded text-[11px] font-bold border border-slate-700">⚾ 투수 투구 지시</button>
+                    <button onclick="switchCmdCategory('def_field')" id="cmd-tab-def_field" class="sub-tab-btn ${matchState.cmdCategory === 'def_field' ? 'active' : ''} px-2.5 py-1 rounded text-[11px] font-bold border border-slate-700">🛡️ 야수 수비 & 시프트</button>
+                `;
+
+                if (matchState.cmdCategory === 'def_pitch') {
+                    btns.innerHTML = `
+                        <button onclick="executeCommand('FASTBALL')" class="bg-indigo-600 hover:bg-indigo-500 text-xs text-white p-2 rounded-lg font-bold transition">몸쪽 직구 승부</button>
+                        <button onclick="executeCommand('SLIDER')" class="bg-blue-600 hover:bg-blue-500 text-xs text-white p-2 rounded-lg font-bold transition">바깥쪽 유인구</button>
+                        <button onclick="executeCommand('CHANGEUP')" class="bg-teal-600 hover:bg-teal-500 text-xs text-white p-2 rounded-lg font-bold transition">변화구 삼진유도</button>
+                        <button onclick="executeCommand('INSIDE')" class="bg-rose-600 hover:bg-rose-500 text-xs text-white p-2 rounded-lg font-bold transition">몸쪽 바짝 붙이기</button>
+                    `;
+                } else {
+                    btns.innerHTML = `
+                        <button onclick="executeCommand('INFIELD')" class="bg-emerald-600 hover:bg-emerald-500 text-xs text-white p-2 rounded-lg font-bold transition">내야 전진 수비</button>
+                        <button onclick="executeCommand('PITCHOUT')" class="bg-purple-600 hover:bg-purple-500 text-xs text-white p-2 rounded-lg font-bold transition">피치 아웃 (견제)</button>
+                        <button onclick="executeCommand('WALK')" class="bg-slate-700 hover:bg-slate-600 text-xs text-white p-2 rounded-lg font-bold transition">고의 사구 (敬遠)</button>
+                        <button onclick="executeCommand('OUTFIELD')" class="bg-blue-700 hover:bg-blue-600 text-xs text-white p-2 rounded-lg font-bold transition">외야 전진 수비</button>
+                    `;
+                }
+            }
+        }
+
+        // PERFECTED COMMAND EXECUTION & LOOP UNFREEZE
+        function executeCommand(cmd) {
+            matchState.isIntervention = false;
+            document.getElementById('console-status').textContent = "시뮬레이션 중";
+            document.getElementById('console-status').className = "text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-bold";
+
+            const isOffense = !matchState.isTop;
+            const statusMsg = isOffense ? "공격 작전 수행 중..." : "투구 지시 이행 중...";
+            document.getElementById('command-buttons').innerHTML = `<div class="col-span-3 text-center text-xs text-slate-500 py-3">${statusMsg}</div>`;
+
+            const rand = Math.random();
+
+            if (cmd === 'FASTBALL') {
+                pitchBallResult(rand, 0.25, 0);
+            } else if (cmd === 'SLIDER') {
+                pitchBallResult(rand, -0.1, 0.3);
+            } else if (cmd === 'CHANGEUP') {
+                pitchBallResult(rand, 0.3, 0);
+            } else if (cmd === 'INFIELD') {
+                matchLog("🛡️ [내야 전진 수비] 땅볼 시 홈 태그아웃 대비 시프트.");
+                pitchBallResult(rand);
+            } else if (cmd === 'PITCHOUT') {
+                matchState.balls++;
+                matchLog("⚾ [피치 아웃] 도루 경계 포수 허공 투구.");
+                runMatchLoop();
+            } else if (cmd === 'WALK') {
+                advanceRunnersDetailed(1, 'WALK');
+                matchLog("⚾ [고의 사구] 강타자를 1루로 내보냅니다.");
+                matchState.strikes = 0; matchState.balls = 0;
+                nextBatter();
+                runMatchLoop();
+            } else if (cmd === 'STEAL') {
+                if (matchState.runners[0] || matchState.runners[1]) {
+                    if (rand > 0.3) {
+                        if (matchState.runners[1]) { matchState.runners[2] = true; matchState.runners[1] = false; }
+                        else if (matchState.runners[0]) { matchState.runners[1] = true; matchState.runners[0] = false; }
+                        matchLog("🏃 [도루 성공!] 주자가 한 베이스를 성공적으로 훔쳤습니다!");
+                    } else {
+                        if (matchState.runners[1]) matchState.runners[1] = false;
+                        else if (matchState.runners[0]) matchState.runners[0] = false;
+                        matchState.outs++;
+                        matchLog("🚨 [도루 실패] 태그아웃당합니다!");
+                        checkOutsAndAdvance();
+                        return;
+                    }
+                } else {
+                    matchLog("⚠️ 도루할 주자가 없습니다.");
+                }
+                pitchBallResult(rand);
+            } else if (cmd === 'SQUEEZE' || cmd === 'SAC_BUNT') {
+                advanceRunnersDetailed(1, 'SAC');
+                matchState.outs++;
+                matchLog("🎯 [번트 성공] 타자 아웃과 동시에 주자 안전 진루!");
+                checkOutsAndAdvance();
+                runMatchLoop();
+            } else {
+                pitchBallResult(rand);
+            }
+        }
+
+        function finishMatch() {
+            const isWin = matchState.homeR > matchState.awayR;
+            document.getElementById('match-modal').classList.add('hidden');
+
+            if (!matchState.isOfficial) {
+                alert(`🏁 연습경기 종료!\n최종 스코어: 우리 고교 ${matchState.homeR} : ${matchState.awayR} 상대팀`);
+                advanceDays(7);
+                renderAll();
+                return;
+            }
+
+            if (isWin) {
+                if (gameState.tournament.roundIndex === 0) {
+                    gameState.tournament.roundIndex = 1;
+                    gameState.tournament.roundName = '4강 준결승전';
+                    gameState.tournament.opponentName = rivalTeams[Math.floor(Math.random() * rivalTeams.length)];
+                    alert(`🎉 [승리!] 8강전 통과 ➔ 4강 준결승 진출!`);
+                } else if (gameState.tournament.roundIndex === 1) {
+                    gameState.tournament.roundIndex = 2;
+                    gameState.tournament.roundName = '👑 고시엔 결승전';
+                    gameState.tournament.opponentName = '최강 제국고등학교';
+                    alert(`🎉 [대승!] 준결승 승리 ➔ 고시엔 결승전 진출!`);
+                } else {
+                    alert(`🏆 [고시엔 우승!!] 전국 제패를 달성했습니다!`);
+                    gameState.tournament.active = false;
+                    advanceDays(14);
+                }
+            } else {
+                alert(`😭 [대회 탈락] ${gameState.tournament.roundName} 패배. 다음 시즌을 준비하세요.`);
+                gameState.tournament.active = false;
+                advanceDays(14);
+            }
+
+            renderAll();
+        }
+
+        window.onload = () => {
+            initRoster();
+        };
+    </script>
+</body>
+</html>
